@@ -161,19 +161,41 @@
     }
   }
 
-  // ---------- render: hero ----------
-  function renderStats() {
-    const total = S.items.reduce((a, b) => a + (b.qty || 0), 0);
-    const low = S.items.filter((i) => statusOf(i) === 'warn').length;
-    const out = S.items.filter((i) => statusOf(i) === 'danger').length;
-    const today = new Date().toDateString();
-    const outToday = S.log.filter((l) => l.kind === 'out' && new Date(l.t).toDateString() === today).reduce((a, l) => a + -l.delta, 0);
-    $('#stats').innerHTML = `
-      <div class="stat"><b>${fmt(S.items.length)}</b><span>รายการ</span></div>
-      <div class="stat"><b>${fmt(total)}</b><span>ชิ้นในคลัง</span></div>
-      <button class="stat warn" data-jump="low"><b>${fmt(low + out)}</b><span>ใกล้หมด</span></button>
-      <button class="stat" data-jump="history"><b>${fmt(outToday)}</b><span>เบิกวันนี้</span></button>`;
-    $('#store-name').textContent = CFG.STORE_NAME || 'คลังสินค้า';
+  // ---------- look & feel helpers ----------
+  const PAL = {
+    'ข้องอ 90°': ['#7b61ff', '#efeaff'],
+    'ข้องอ 45°': ['#ee8a2a', '#fff0e2'],
+    'สามทาง': ['#3d7bfd', '#e6f0ff'],
+    'ต่อตรง': ['#1f9d61', '#e3f6ec'],
+    'ข้อลด': ['#e0457b', '#ffe8f0'],
+    'แคลมป์ & กิ๊บ': ['#b98a00', '#fbf5d6'],
+    'ฝาครอบ': ['#1597a5', '#e0f6f7'],
+  };
+  const EXTRA = [['#8b5cf6', '#f1ebff'], ['#f97316', '#fff1e6'], ['#0ea5e9', '#e4f5fd'], ['#16a34a', '#e6f6ea']];
+  const palOf = (cat) => {
+    if (PAL[cat]) return PAL[cat];
+    let h = 0; for (const ch of String(cat)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return EXTRA[h % EXTRA.length];
+  };
+  const tint = (cat) => { const [c, t] = palOf(cat); return `--c:${c};--t:${t}`; };
+  const SEED_IMG = Object.fromEntries(SEED.filter((s) => s.img).map((s) => [s.id, s.img]));
+  const imgFor = (it) => (it && (it.img || SEED_IMG[it.id])) || '';
+  const pic = (it, eager) => {
+    const src = imgFor(it);
+    return src ? `<img src="${esc(src)}" alt="${esc(label(it))}" ${eager ? '' : 'loading="lazy" '}decoding="async">` : iconFor(it && it.cat);
+  };
+  const sizeHTML = (it) => (esc(it.size) || '—').replace(/ ลด /g, '<span class="lo">ลด</span>');
+  const byId = (id) => S.items.find((i) => i.id === id);
+
+  // ---------- header + stats ----------
+  const dateFmt = new Intl.DateTimeFormat('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
+  function renderHeader() {
+    const me = store.get('me', '');
+    const low = S.items.filter((i) => statusOf(i) !== 'ok').length;
+    $('#hello').textContent = me ? `สวัสดี, ${me}` : 'สวัสดีครับ';
+    $('#sub').innerHTML = `${esc(dateFmt.format(new Date()))} · ${esc(CFG.STORE_NAME || '')}${low ? ` · <em>ใกล้หมด ${low} รายการ</em>` : ''}`;
+    $('#avatar').innerHTML = me ? esc([...me.replace(/^ช่าง/, '')][0] || me[0]) : '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+    $('#low-dot').hidden = !low;
 
     const b = $('#banner');
     if (S.error && S.error !== 'PIN_REQUIRED') b.innerHTML = `<div class="banner err">${I.alert}<span>${esc(S.error)}</span><button data-act="retry">ลองใหม่</button></div>`;
@@ -182,38 +204,58 @@
     else b.innerHTML = '';
   }
 
-  // ---------- render: stock ----------
-  function renderChips() {
-    const low = S.items.filter((i) => statusOf(i) !== 'ok').length;
-    const all = [['all', 'ทั้งหมด', S.items.length, '']].concat(cats().map(([c, n]) => [c, c, n, iconFor(c)]));
-    $('#chips').innerHTML = all.map(([k, t, n, ic]) =>
-      `<button class="chip ${S.cat === k ? 'active' : ''}" data-cat="${esc(k)}">${ic}${esc(t)} <em>${n}</em></button>`).join('') +
-      `<button class="chip alert ${S.cat === 'low' ? 'active' : ''}" data-cat="low">ใกล้หมด <em>${low}</em></button>`;
+  function spark(vals) {
+    const max = Math.max(1, ...vals);
+    const pts = vals.map((v, i) => [i * (74 / (vals.length - 1)), 27 - (v / max) * 24]);
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return `<svg class="spark" viewBox="0 0 74 30"><path d="${d}"/></svg>`;
   }
 
-  function cardHTML(it) {
+  function renderStats() {
+    const total = S.items.reduce((a, b) => a + (b.qty || 0), 0);
+    const low = S.items.filter((i) => statusOf(i) !== 'ok').length;
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (6 - i)); return d.toDateString(); });
+    const perDay = days.map((k) => S.log.filter((l) => l.kind === 'out' && new Date(l.t).toDateString() === k).reduce((a, l) => a - l.delta, 0));
+    const ic = (p) => `<i><svg viewBox="0 0 24 24">${p}</svg></i>`;
+    $('#stats').innerHTML = `
+      <button class="stat peach" data-jump="low"><span class="lbl">${ic('<path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/>')}ใกล้หมด</span><b>${fmt(low)}<small>รายการ</small></b></button>
+      <div class="stat lav"><span class="lbl">${ic('<path d="M3 8 12 3l9 5v8l-9 5-9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>')}ในคลัง</span><b>${fmt(total)}<small>ชิ้น</small></b></div>
+      <button class="stat sky" data-jump="history"><span class="lbl">${ic('<path d="M12 5v14M6 13l6 6 6-6"/>')}เบิกวันนี้</span><b>${fmt(perDay[6])}<small>ชิ้น</small></b>${spark(perDay)}</button>
+      <div class="stat mint"><span class="lbl">${ic('<path d="M4 6h16M4 12h16M4 18h10"/>')}รายการ</span><b>${fmt(S.items.length)}<small>ชนิด</small></b></div>`;
+  }
+
+  // ---------- chips & tiles ----------
+  function renderChips() {
+    const low = S.items.filter((i) => statusOf(i) !== 'ok').length;
+    const html = [`<button class="chip plain ${S.cat === 'all' ? 'active' : ''}" data-cat="all">ทั้งหมด <em>${S.items.length}</em></button>`]
+      .concat(cats().map(([c, n]) => `<button class="chip ${S.cat === c ? 'active' : ''}" style="${tint(c)}" data-cat="${esc(c)}"><span class="ci">${iconFor(c)}</span>${esc(c)} <em>${n}</em></button>`))
+      .concat(`<button class="chip ${S.cat === 'low' ? 'active' : ''}" style="--c:#e8890c;--t:#fff2df" data-cat="low"><span class="ci">${I.alert}</span>ใกล้หมด <em>${low}</em></button>`);
+    $('#chips').innerHTML = html.join('');
+  }
+
+  function tileHTML(it) {
     const p = S.pending[it.id] || 0;
     const st = statusOf(it);
-    const size = esc(it.size).replace(/ ลด /g, '<span class="lo">ลด</span>');
-    const nextTxt = p ? `<span class="next">→ ${fmt(it.qty + p)}</span>` : '';
-    return `<article class="card ${p ? 'pending' : ''}" data-id="${esc(it.id)}">
-      <div class="ic">${iconFor(it.cat)}</div>
-      <button class="tx" data-open="${esc(it.id)}" aria-label="ดูรายละเอียด ${esc(label(it))}">
-        <div class="nm">${esc(it.name)}</div>
-        <div class="sz">${size || '—'}</div>
+    return `<article class="tile ${p ? 'pending' : ''}" data-id="${esc(it.id)}" style="${tint(it.cat)}">
+      <button class="thumb" data-open="${esc(it.id)}" aria-label="ดูรายละเอียด ${esc(label(it))}">
+        ${pic(it)}
+        <span class="badge ${st}">${STATUS_TXT[st]}</span>
+        <span class="qbubble ${p ? 'changed' : ''}">${p ? `${fmt(it.qty)} → ${fmt(it.qty + p)}` : fmt(it.qty)}</span>
       </button>
-      <div class="qt"><b>${fmt(it.qty)}</b><span>${esc(it.unit)}</span>${nextTxt}</div>
-      <div class="st"><span class="pill ${st}">${STATUS_TXT[st]}</span></div>
-      <div class="sp">
-        <div class="stepper">
-          <button class="minus" data-step="-1" aria-label="เบิกออก 1" ${it.qty + p <= 0 ? 'disabled' : ''}>${I.minus}</button>
-          <output class="${p < 0 ? 'neg' : p > 0 ? 'pos' : ''}">${p > 0 ? '+' + p : p}</output>
-          <button class="plus" data-step="1" aria-label="รับเข้า 1">${I.plus}</button>
-        </div>
+      <button class="tinfo" data-open="${esc(it.id)}" tabindex="-1">
+        <div class="nm">${esc(it.name)}</div>
+        <div class="sz">${sizeHTML(it)}</div>
+        <div class="meta">คงเหลือ <b>${fmt(it.qty)}</b> ${esc(it.unit)}</div>
+      </button>
+      <div class="stepper">
+        <button class="minus" data-step="-1" aria-label="เบิกออก 1" ${it.qty + p <= 0 ? 'disabled' : ''}>${I.minus}</button>
+        <output class="${p < 0 ? 'neg' : p > 0 ? 'pos' : ''}">${p > 0 ? '+' + p : p}</output>
+        <button class="plus" data-step="1" aria-label="รับเข้า 1">${I.plus}</button>
       </div>
     </article>`;
   }
 
+  const tokens = (q) => String(q).trim().split(/\s+/).filter(Boolean).map(norm);
   function filtered() {
     const toks = tokens(S.q);
     return S.items.filter((it) => {
@@ -224,12 +266,13 @@
       return toks.every((t) => hay.includes(t));
     });
   }
-  const tokens = (q) => String(q).trim().split(/\s+/).filter(Boolean).map(norm);
 
   function renderList() {
     const el = $('#list');
-    if (!S.loaded) { el.innerHTML = Array.from({ length: 6 }, () => '<div class="skeleton"></div>').join(''); return; }
+    $('#list-title').textContent = S.cat === 'all' ? 'รายการอะไหล่' : S.cat === 'low' ? 'ของใกล้หมด' : S.cat;
+    if (!S.loaded) { el.innerHTML = Array.from({ length: 8 }, () => '<div class="skeleton"></div>').join(''); $('#list-count').textContent = ''; return; }
     const list = filtered();
+    $('#list-count').textContent = `${list.length} รายการ`;
     if (!list.length) {
       el.innerHTML = `<div class="empty">${I.box}<div>${S.items.length ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในคลัง'}</div></div>`;
       return;
@@ -238,51 +281,95 @@
       const groups = new Map();
       for (const it of list) { if (!groups.has(it.cat)) groups.set(it.cat, []); groups.get(it.cat).push(it); }
       el.innerHTML = [...groups].map(([c, arr]) =>
-        `<div class="group-title">${esc(c)} <small>${arr.length} รายการ · ${fmt(arr.reduce((a, b) => a + b.qty, 0))} ชิ้น</small></div>` + arr.map(cardHTML).join('')).join('');
+        `<div class="group-title" style="${tint(c)}"><i></i>${esc(c)} <small>${arr.length} รายการ · ${fmt(arr.reduce((a, b) => a + b.qty, 0))} ชิ้น</small></div>` + arr.map(tileHTML).join('')).join('');
     } else {
-      el.innerHTML = list.map(cardHTML).join('');
+      const arr = S.cat === 'low' ? [...list].sort((a, b) => a.qty - b.qty) : list;
+      el.innerHTML = arr.map(tileHTML).join('');
     }
   }
 
-  function updateCard(id) {
-    const it = S.items.find((i) => i.id === id);
-    const old = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-    if (it && old) old.outerHTML = cardHTML(it);
+  function updateTile(id) {
+    const it = byId(id);
+    const old = document.querySelector(`.tile[data-id="${CSS.escape(id)}"]`);
+    if (it && old) old.outerHTML = tileHTML(it);
   }
 
-  // ---------- render: cart ----------
+  // ---------- side column ----------
+  function renderSpot() {
+    const el = $('#spot');
+    if (!S.loaded) { el.innerHTML = ''; return; }
+    const lows = S.items.filter((i) => statusOf(i) !== 'ok').sort((a, b) => a.qty - b.qty || a.id.localeCompare(b.id));
+    const zero = lows.filter((i) => i.qty <= 0).length;
+    const readyPct = S.items.length ? Math.round(((S.items.length - lows.length) / S.items.length) * 100) : 100;
+    const C = 2 * Math.PI * 24;
+    if (!lows.length) {
+      el.className = 'spot calm';
+      el.innerHTML = `<div class="spot-head"><h3>ของครบทุกรายการ</h3><span class="round sm" style="background:#fff">${I.check}</span></div>
+        <p class="muted-note" style="color:#4b6a58">ยังไม่มีของที่ต้องสั่งเพิ่ม</p>`;
+      return;
+    }
+    el.className = 'spot';
+    const top = lows[0];
+    el.innerHTML = `<div class="spot-head"><h3>ต้องสั่งเพิ่ม</h3><span class="pill-btn" style="height:32px;padding:0 12px;font-size:12.5px">${lows.length} รายการ</span></div>
+      <button class="spot-pic" data-open="${esc(top.id)}" aria-label="${esc(label(top))}">${pic(top, true)}</button>
+      <div class="spot-name">
+        <div><b>${esc(top.name)} ${esc(top.size)}</b><small>เหลือ ${fmt(top.qty)} ${esc(top.unit)} · ${statusOf(top) === 'danger' ? 'หมดแล้ว' : 'ใกล้หมด'}</small></div>
+        <div class="ring" title="รายการที่พร้อมใช้"><svg viewBox="0 0 58 58"><circle class="bgc" cx="29" cy="29" r="24"/><circle class="fg" cx="29" cy="29" r="24" stroke-dasharray="${(C * readyPct) / 100} ${C}"/></svg><span>${readyPct}%</span></div>
+      </div>
+      <div class="spot-stats"><div><span>หมดแล้ว</span><b>${zero}</b></div><div><span>เหลือน้อย</span><b>${lows.length - zero}</b></div></div>
+      <div class="spot-list">${lows.slice(0, 14).map((it) => `<button data-open="${esc(it.id)}" title="${esc(label(it))}"><div class="mini">${pic(it, true)}<em class="${it.qty <= 0 ? 'zero' : ''}">${fmt(it.qty)}</em></div>${esc(it.size)}</button>`).join('')}</div>
+      <button class="more" data-jump="low">ดูของใกล้หมดทั้งหมด</button>`;
+  }
+
+  const timeFmt = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' });
+  const shortDay = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short' });
+  const whenTxt = (t) => { const d = new Date(t); return d.toDateString() === new Date().toDateString() ? timeFmt.format(d) : shortDay.format(d); };
+
+  function renderRecent() {
+    const el = $('#recent');
+    const rows = S.log.slice(0, 6);
+    if (!rows.length) { el.innerHTML = '<p class="muted-note">ยังไม่มีการเบิก</p>'; return; }
+    el.innerHTML = rows.map((l) => {
+      const it = byId(l.id) || { id: l.id, cat: '', name: l.name, size: '' };
+      return `<button class="rrow" data-open="${esc(l.id)}"><span class="ri" style="${tint(it.cat)}">${pic(it)}</span>
+        <span style="min-width:0"><b>${esc(l.name)}</b><small>${esc([l.by, l.site].filter(Boolean).join(' · '))}</small></span>
+        <span class="rt"><i class="${l.kind}"></i>${l.delta > 0 ? '+' : ''}${fmt(l.delta)} · ${esc(whenTxt(l.t))}</span></button>`;
+    }).join('');
+  }
+
+  // ---------- cart ----------
   function renderCart() {
     const ids = Object.keys(S.pending);
     const cart = $('#cart');
     if (!ids.length) { cart.hidden = true; cart.innerHTML = ''; return; }
     let outN = 0, inN = 0;
     for (const id of ids) { const d = S.pending[id]; if (d < 0) outN += -d; else inN += d; }
-    const names = ids.map((id) => { const it = S.items.find((i) => i.id === id); return it ? `${it.size} ${it.name}` : ''; }).join(' · ');
     const parts = [outN && `เบิก ${outN} ชิ้น`, inN && `รับเข้า ${inN} ชิ้น`].filter(Boolean).join(' · ');
+    const names = ids.map((id) => { const it = byId(id); return it ? `${it.size} ${it.name}` : ''; }).join(' · ');
     cart.hidden = false;
-    cart.innerHTML = `<div class="cart-info"><b>${ids.length} รายการ</b> · ${parts}<span>${esc(names)}</span></div>
+    cart.innerHTML = `<div class="cart-thumbs">${ids.slice(0, 3).map((id) => `<span>${pic(byId(id))}</span>`).join('')}</div>
+      <div class="cart-info"><b>${ids.length} รายการ · ${parts}</b><span>${esc(names)}</span></div>
       <button class="clear" data-act="clear">ล้าง</button>
-      <button class="btn gold sm" data-act="confirm">ยืนยัน</button>`;
+      <button class="go" data-act="confirm">ยืนยัน</button>`;
   }
 
-  // ---------- render: history ----------
+  // ---------- history ----------
   const KIND_TXT = { out: 'เบิกออก', in: 'รับเข้า', adjust: 'ปรับยอด', new: 'เพิ่มรายการ' };
   const dayFmt = new Intl.DateTimeFormat('th-TH', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
-  const timeFmt = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' });
 
   function logRow(l) {
-    const meta = [l.by, l.site && `ไซต์ ${l.site}`, timeFmt.format(new Date(l.t))].filter(Boolean).map(esc).join(' · ');
-    const sign = l.delta > 0 ? '+' : '';
+    const it = byId(l.id) || { id: l.id, cat: '', name: l.name, size: '' };
+    const meta = [KIND_TXT[l.kind] || l.kind, l.by, l.site && `ไซต์ ${l.site}`, timeFmt.format(new Date(l.t))].filter(Boolean).map(esc).join(' · ');
     return `<div class="log-row">
-      <div class="log-ic ${l.kind}">${I[l.kind] || I.box}</div>
-      <div class="log-main"><b>${esc(l.name)}</b><span>${KIND_TXT[l.kind] || esc(l.kind)} · ${meta}${l.note ? ' · ' + esc(l.note) : ''}</span></div>
-      <div class="log-qty"><b class="${l.kind}">${sign}${fmt(l.delta)}</b><span>เหลือ ${fmt(l.after)}</span></div>
+      <div class="log-ic" style="${tint(it.cat)}">${pic(it)}<span class="k ${l.kind}">${I[l.kind] || I.box}</span></div>
+      <div class="log-main"><b>${esc(l.name)}</b><span>${meta}${l.note ? ' · ' + esc(l.note) : ''}</span></div>
+      <div class="log-qty"><b class="${l.kind}">${l.delta > 0 ? '+' : ''}${fmt(l.delta)}</b><span>เหลือ ${fmt(l.after)}</span></div>
     </div>`;
   }
 
   function renderHistory() {
-    const kinds = [['all', 'ทั้งหมด'], ['out', 'เบิกออก'], ['in', 'รับเข้า'], ['adjust', 'ปรับยอด']];
-    $('#hchips').innerHTML = kinds.map(([k, t]) => `<button class="chip ${S.hkind === k ? 'active' : ''}" data-hkind="${k}">${t}</button>`).join('');
+    const kinds = [['all', 'ทั้งหมด', '#17171c', '#f4f5fa'], ['out', 'เบิกออก', '#e5484d', '#ffeceb'], ['in', 'รับเข้า', '#1f9d61', '#e4f7ec'], ['adjust', 'ปรับยอด', '#7b61ff', '#efeaff']];
+    $('#hchips').innerHTML = kinds.map(([k, t, c, bg]) => `<button class="chip ${k === 'all' ? 'plain' : ''} ${S.hkind === k ? 'active' : ''}" style="--c:${c};--t:${bg}" data-hkind="${k}">${t}</button>`).join('');
     const q = norm(S.hq);
     const list = S.log.filter((l) => (S.hkind === 'all' || l.kind === S.hkind || (S.hkind === 'in' && l.kind === 'new')) &&
       (!q || norm(`${l.name} ${l.by} ${l.site} ${l.note}`).includes(q)));
@@ -299,24 +386,22 @@
   }
 
   function renderAll() {
-    renderStats();
-    if (S.view === 'stock') { renderChips(); renderList(); } else renderHistory();
+    renderHeader();
+    if (S.view === 'history') renderHistory();
+    else { renderStats(); renderChips(); renderList(); renderSpot(); renderRecent(); }
     renderCart();
   }
 
   // ---------- sheet ----------
   const wrap = $('#sheet-wrap'), sheet = $('#sheet');
-  let onSheetClose = null;
   function openSheet(html, after) {
     sheet.innerHTML = `<div class="grab"></div>${html}`;
+    sheet.scrollTop = 0;
     wrap.hidden = false;
     document.body.style.overflow = 'hidden';
     if (after) after(sheet);
   }
-  function closeSheet() {
-    wrap.hidden = true; sheet.innerHTML = ''; document.body.style.overflow = '';
-    if (onSheetClose) { const f = onSheetClose; onSheetClose = null; f(); }
-  }
+  function closeSheet() { wrap.hidden = true; sheet.innerHTML = ''; document.body.style.overflow = ''; }
   const head = (title, sub) => `<div class="sheet-head"><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div><button class="x" data-close aria-label="ปิด">${I.x}</button></div>`;
 
   function sitePicker(value) {
@@ -336,16 +421,15 @@
   }
 
   function openConfirm() {
-    const ids = Object.keys(S.pending);
-    if (!ids.length) return;
-    const lines = ids.map((id) => ({ it: S.items.find((i) => i.id === id), d: S.pending[id] })).filter((x) => x.it);
+    const lines = Object.keys(S.pending).map((id) => ({ it: byId(id), d: S.pending[id] })).filter((x) => x.it);
+    if (!lines.length) return;
     const hasOut = lines.some((x) => x.d < 0);
     const hasIn = lines.some((x) => x.d > 0);
     const title = hasOut && hasIn ? 'ยืนยันเบิก / รับเข้า' : hasOut ? 'ยืนยันการเบิก' : 'ยืนยันรับของเข้า';
     const outSum = lines.filter((x) => x.d < 0).reduce((a, x) => a - x.d, 0);
     const inSum = lines.filter((x) => x.d > 0).reduce((a, x) => a + x.d, 0);
     openSheet(`${head(title, 'ตรวจรายการ แล้วใส่ชื่อผู้ทำรายการ')}
-      <div class="lines">${lines.map(({ it, d }) => `<div class="line"><div><b>${esc(label(it))}</b><small>คงเหลือ ${fmt(it.qty)} → ${fmt(it.qty + d)} ${esc(it.unit)}</small></div>
+      <div class="lines">${lines.map(({ it, d }) => `<div class="line"><span class="li" style="${tint(it.cat)}">${pic(it)}</span><div><b>${esc(label(it))}</b><small>คงเหลือ ${fmt(it.qty)} → ${fmt(it.qty + d)} ${esc(it.unit)}</small></div>
         <div class="d ${d < 0 ? 'out' : 'in'}">${d > 0 ? '+' : ''}${d}</div></div>`).join('')}
         <div class="lines-sum"><span>${lines.length} รายการ</span><span>${[outSum && `เบิกออก ${outSum}`, inSum && `รับเข้า ${inSum}`].filter(Boolean).join(' · ')} ชิ้น</span></div>
       </div>
@@ -353,11 +437,10 @@
         <label class="field"><span>ชื่อผู้ทำรายการ <i>*</i></span><input name="by" value="${esc(store.get('me', ''))}" placeholder="เช่น ช่างสิงห์" autocomplete="name" required></label>
         ${hasOut ? sitePicker(store.get('lastSite', '')) : ''}
         <label class="field"><span>หมายเหตุ</span><input name="note" placeholder="ไม่บังคับ เช่น งานเปลี่ยนท่อห้องน้ำชั้น 2" autocomplete="off"></label>
-        <button class="btn gold block" type="submit">${I.check}${hasOut ? 'บันทึกการเบิก' : 'บันทึกรับเข้า'}</button>
+        <button class="btn dark block" type="submit">${I.check}${hasOut ? 'บันทึกการเบิก' : 'บันทึกรับเข้า'}</button>
       </form>`, (root) => {
       wireSuggest(root);
       const f = $('#f-confirm', root);
-      if (!f.by.value) setTimeout(() => f.by.focus(), 250);
       f.addEventListener('submit', async (e) => {
         e.preventDefault();
         const by = f.by.value.trim();
@@ -383,20 +466,17 @@
   }
 
   function openItem(id) {
-    const it = S.items.find((i) => i.id === id);
+    const it = byId(id);
     if (!it) return;
     const st = statusOf(it);
-    const logs = S.log.filter((l) => l.id === id).slice(0, 8);
+    const logs = S.log.filter((l) => l.id === id).slice(0, 6);
     const lastOut = S.log.find((l) => l.id === id && l.kind === 'out');
-    openSheet(`${head('', '')}
-      <div class="detail-hero" style="margin-top:-46px">
-        <div class="ic">${iconFor(it.cat)}</div>
-        <div><div class="nm">${esc(it.name)} · ${esc(it.id)}</div><div class="sz">${esc(it.size) || '—'}</div></div>
-      </div>
+    openSheet(`<div class="detail-pic" style="${tint(it.cat)}">${pic(it, true)}<span class="badge ${st === 'ok' ? '' : st}" style="${st === 'ok' ? 'color:var(--in)' : ''}">${STATUS_TXT[st]}</span><button class="x" data-close aria-label="ปิด">${I.x}</button></div>
+      <div class="detail-title"><div class="nm">${esc(it.name)}${it.name.startsWith(it.cat) ? "" : " · " + esc(it.cat)}</div><div class="sz">${esc(it.size) || '—'}</div></div>
       <div class="detail-qty">
         <div><b>${fmt(it.qty)}</b><span>คงเหลือ (${esc(it.unit)})</span></div>
-        <div><b class="pill ${st}" style="font:inherit;font-size:13px;height:28px;margin-top:2px">${STATUS_TXT[st]}</b><span>เตือนเมื่อเหลือ ≤ ${fmt(it.min ?? 1)}</span></div>
-        <div><b style="font-size:15px;line-height:1.6">${lastOut ? esc(lastOut.site || lastOut.by) : '—'}</b><span>เบิกล่าสุด</span></div>
+        <div><b>≤ ${fmt(it.min ?? 1)}</b><span>เตือนใกล้หมด</span></div>
+        <div><b style="font-size:15px">${lastOut ? esc(lastOut.site || lastOut.by) : '—'}</b><span>เบิกล่าสุด</span></div>
       </div>
       <div class="big-stepper">
         <button type="button" data-b="-1" aria-label="ลด">${I.minus}</button>
@@ -413,7 +493,7 @@
         <button class="btn" type="submit">${I.adjust}ปรับยอด</button>
       </form>
       <div class="mini-log"><h4>ความเคลื่อนไหวล่าสุด</h4>
-        ${logs.length ? `<div class="log">${logs.map(logRow).join('')}</div>` : '<p style="color:var(--muted);font-size:13.5px;margin:0">ยังไม่มีประวัติ</p>'}
+        ${logs.length ? `<div class="log">${logs.map(logRow).join('')}</div>` : '<p class="muted-note" style="padding:0">ยังไม่มีประวัติ</p>'}
       </div>`, (root) => {
       const amt = $('#amt', root);
       const val = () => Math.max(1, Math.round(Number(amt.value) || 1));
@@ -445,7 +525,7 @@
   function askName(title, fn) {
     openSheet(`${head('ยืนยัน', esc(title))}
       <form id="f-name"><label class="field"><span>ชื่อผู้ทำรายการ <i>*</i></span><input name="by" value="${esc(store.get('me', ''))}" required></label>
-      <button class="btn gold block" type="submit">${I.check}ยืนยัน</button></form>`, (root) => {
+      <button class="btn dark block" type="submit">${I.check}ยืนยัน</button></form>`, (root) => {
       const f = $('#f-name', root);
       f.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -472,7 +552,7 @@
           <label class="field"><span>เตือนเมื่อเหลือ</span><input name="min" type="number" inputmode="numeric" min="0" value="1"></label>
         </div>
         <label class="field"><span>ชื่อผู้เพิ่ม <i>*</i></span><input name="by" value="${esc(store.get('me', ''))}" required></label>
-        <button class="btn gold block" type="submit">${I.plus}เพิ่มเข้าคลัง</button>
+        <button class="btn dark block" type="submit">${I.plus}เพิ่มเข้าคลัง</button>
       </form>`, (root) => {
       const f = $('#f-add', root);
       f.cat.addEventListener('change', () => { $('#newcat', root).hidden = f.cat.value !== '__new'; });
@@ -505,17 +585,17 @@
         <label class="field"><span>รหัสทีม (PIN)</span><input name="pin" type="password" inputmode="numeric" value="${esc(store.get('pin', ''))}" placeholder="ถ้าออฟฟิศตั้งไว้"></label>
         <label class="field"><span>ลิงก์ Apps Script</span><input name="api" value="${esc(store.get('apiUrl', ''))}" placeholder="${esc(CFG.API_URL || 'https://script.google.com/macros/s/…/exec')}">
           <span class="hint">ปกติไม่ต้องใส่ — ใช้ค่าจาก config.js ของเว็บ</span></label>
-        <button class="btn gold block" type="submit">${I.check}บันทึก</button>
+        <button class="btn dark block" type="submit">${I.check}บันทึก</button>
       </form>
       ${!remote ? '<div class="divider"></div><button class="btn block" data-act="reset-local">ล้างข้อมูลทดลอง กลับเป็นยอดตั้งต้น</button>' : ''}`, (root) => {
       const f = $('#f-set', root);
       if (pinFocus) setTimeout(() => f.pin.focus(), 250);
       f.addEventListener('submit', (e) => {
         e.preventDefault();
-        store.set('me', f.me.value.trim());
-        store.set('pin', f.pin.value.trim());
         const a = f.api.value.trim();
         if (a && !/^https:\/\/script\.google(usercontent)?\.com\//.test(a)) { toast('ลิงก์ต้องขึ้นต้นด้วย https://script.google.com/', true); return; }
+        store.set('me', f.me.value.trim());
+        store.set('pin', f.pin.value.trim());
         store.set('apiUrl', a);
         closeSheet();
         S.loaded = false; renderAll();
@@ -538,10 +618,13 @@
 
   // ---------- view switching ----------
   function setView(v) {
+    if (v === 'low') { S.cat = 'low'; v = 'stock'; S.railLow = true; }
+    else if (v === 'stock') { if (S.railLow || S.view === 'stock') S.cat = 'all'; S.railLow = false; }
     S.view = v;
     $('#view-stock').hidden = v !== 'stock';
     $('#view-history').hidden = v !== 'history';
-    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
+    const railKey = v === 'stock' && S.cat === 'low' ? 'low' : v;
+    document.querySelectorAll('.rail-btn[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === railKey));
     renderAll();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -552,20 +635,24 @@
     if (!t) return;
     if (t.hasAttribute('data-close')) return closeSheet();
     if (t.dataset.step) {
-      const id = t.closest('.card').dataset.id;
-      const it = S.items.find((i) => i.id === id);
+      const id = t.closest('.tile').dataset.id;
+      const it = byId(id);
       const next = (S.pending[id] || 0) + Number(t.dataset.step);
       if (it.qty + next < 0) return;
       if (next === 0) delete S.pending[id]; else S.pending[id] = next;
-      if (navigator.vibrate) navigator.vibrate(8);
-      updateCard(id); renderCart();
+      if (navigator.vibrate && navigator.userActivation?.hasBeenActive) navigator.vibrate(8);
+      updateTile(id); renderCart();
       return;
     }
     if (t.dataset.open) return openItem(t.dataset.open);
-    if (t.dataset.cat) { S.cat = t.dataset.cat; renderChips(); renderList(); return; }
+    if (t.dataset.cat) {
+      S.cat = t.dataset.cat; S.railLow = S.cat === 'low';
+      document.querySelectorAll('.rail-btn[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === (S.cat === 'low' ? 'low' : 'stock')));
+      renderChips(); renderList(); return;
+    }
     if (t.dataset.hkind) { S.hkind = t.dataset.hkind; renderHistory(); return; }
     if (t.dataset.view) return setView(t.dataset.view);
-    if (t.dataset.jump === 'low') { if (S.view !== 'stock') setView('stock'); S.cat = 'low'; renderChips(); renderList(); $('#view-stock .toolbar').scrollIntoView({ behavior: 'smooth' }); return; }
+    if (t.dataset.jump === 'low') return setView('low');
     if (t.dataset.jump === 'history') { S.hkind = 'out'; return setView('history'); }
     switch (t.dataset.act) {
       case 'clear': S.pending = {}; renderAll(); break;
@@ -577,20 +664,12 @@
         break;
     }
   });
-  $('#btn-settings').addEventListener('click', () => openSettings());
   $('#btn-add').addEventListener('click', openAdd);
-  $('#btn-refresh').addEventListener('click', () => { refresh(); toast('อัปเดตแล้ว'); });
+  $('#btn-refresh').addEventListener('click', async () => { await refresh(); toast('อัปเดตแล้ว'); });
   $('#q').addEventListener('input', (e) => { S.q = e.target.value; renderList(); });
   $('#hq').addEventListener('input', (e) => { S.hq = e.target.value; renderHistory(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !wrap.hidden) closeSheet(); });
 
-  // sticky toolbar background only once it sticks
-  const tb = $('#view-stock .toolbar');
-  const sentinel = document.createElement('div');
-  tb.before(sentinel);
-  new IntersectionObserver(([en]) => tb.classList.toggle('stuck', !en.isIntersecting)).observe(sentinel);
-
-  // auto refresh shared data
   setInterval(() => {
     if (isRemote() && document.visibilityState === 'visible' && wrap.hidden && !Object.keys(S.pending).length) refresh(true);
   }, 30000);

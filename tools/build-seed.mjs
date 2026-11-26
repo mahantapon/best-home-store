@@ -1,15 +1,16 @@
 // สร้าง data/seed.js และฝัง SEED ลงใน apps-script/Code.gs จาก data/seed.json
 // รัน: node tools/build-seed.mjs
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const raw = JSON.parse(readFileSync(join(root, 'data/seed.json'), 'utf8'));
-const items = raw.map(([cat, name, size, qty], i) => ({
-  id: 'P' + String(i + 1).padStart(2, '0'),
-  cat, name, size, qty, unit: 'ชิ้น', min: 1, loc: 'Office ตลิ่งชัน',
-}));
+const items = raw.map(([cat, name, size, qty], i) => {
+  const id = 'P' + String(i + 1).padStart(2, '0');
+  const img = existsSync(join(root, `images/${id}.jpg`)) ? `images/${id}.jpg` : '';
+  return { id, cat, name, size, qty, unit: 'ชิ้น', min: 1, loc: 'Office ตลิ่งชัน', img };
+});
 const lit = JSON.stringify(items, null, 2);
 
 writeFileSync(join(root, 'data/seed.js'),

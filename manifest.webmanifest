@@ -3,7 +3,7 @@
   "short_name": "คลังประปา",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f5f2ec",
-  "theme_color": "#121418",
+  "background_color": "#e4e6ff",
+  "theme_color": "#e4e6ff",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

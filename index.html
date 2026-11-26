@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="คลังประปา">
+  <title>คลังอะไหล่ประปา</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Noto+Serif+Thai:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-top">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 7h7a4 4 0 0 1 4 4v9"/><path d="M2.5 5v4M15 21.5h4"/><circle cx="18.5" cy="5.5" r="2.2"/></svg>
+          </span>
+          <div>
+            <p class="eyebrow" id="store-name">Office ตลิ่งชัน</p>
+            <h1>คลังอะไหล่ประปา</h1>
+          </div>
+        </div>
+        <button class="icon-btn ghost" id="btn-settings" aria-label="ตั้งค่า">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div id="banner"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="view-stock" class="view">
+      <div class="toolbar">
+        <label class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="search" inputmode="search" placeholder="ค้นหา เช่น ข้องอ 1/2, สามทาง 2" autocomplete="off">
+        </label>
+        <div class="chips" id="chips" role="tablist"></div>
+      </div>
+      <div class="grid" id="list"></div>
+    </section>
+
+    <section id="view-history" class="view" hidden>
+      <div class="toolbar">
+        <div class="section-head">
+          <h2>ประวัติการเคลื่อนไหว</h2>
+          <button class="link-btn" id="btn-refresh">รีเฟรช</button>
+        </div>
+        <label class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="hq" type="search" placeholder="ค้นหาชื่อของ ผู้เบิก หรือไซต์งาน" autocomplete="off">
+        </label>
+        <div class="chips" id="hchips"></div>
+      </div>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <div class="dock">
+    <div class="cart" id="cart" hidden></div>
+    <nav class="nav" aria-label="เมนู">
+      <button class="nav-btn active" data-view="stock">
+        <svg viewBox="0 0 24 24"><path d="M3 9 12 4l9 5v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M8 20v-6h8v6"/></svg>
+        <span>คลัง</span>
+      </button>
+      <button class="nav-add" id="btn-add" aria-label="เพิ่มรายการใหม่">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="nav-btn" data-view="history">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+        <span>ประวัติ</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="sheet-wrap" id="sheet-wrap" hidden>
+    <div class="backdrop" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" id="sheet"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="data/seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

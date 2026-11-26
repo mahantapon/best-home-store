@@ -1,0 +1,9 @@
+{
+  "name": "คลังอะไหล่ประปา",
+  "short_name": "คลังประปา",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f2ec",
+  "theme_color": "#121418",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

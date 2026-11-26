@@ -1,9 +1,9 @@
 {
-  "name": "คลังอะไหล่ประปา",
-  "short_name": "คลังประปา",
+  "name": "คลังสินค้า best home",
+  "short_name": "คลังสินค้า",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#e4e6ff",
-  "theme_color": "#e4e6ff",
+  "background_color": "#f4f3fb",
+  "theme_color": "#f4f3fb",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

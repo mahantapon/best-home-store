@@ -1,0 +1,4 @@
+LINE Seed Sans TH (web WOFF2: Regular, Bold, ExtraBold)
+Copyright (c) LY Corporation. https://seed.line.me/index_th.html
+Licensed under the SIL Open Font License, Version 1.1 — https://openfontlicense.org
+The font files may be used, embedded and redistributed with software; they may not be sold by themselves.

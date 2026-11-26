@@ -3,104 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#e4e6ff">
+  <meta name="theme-color" content="#f4f3fb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="คลังประปา">
-  <title>คลังอะไหล่ประปา</title>
+  <meta name="apple-mobile-web-app-title" content="คลังสินค้า">
+  <title>คลังสินค้า best home</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="fonts/LINESeedSansTH_W_Rg.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/LINESeedSansTH_W_Bd.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <svg class="bg-lines" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <path d="M-50 640 C 220 420, 380 380, 620 120"/><path d="M180 860 C 420 560, 640 420, 980 60"/>
-    <path d="M560 900 C 760 640, 980 520, 1260 300"/><path d="M-80 260 C 120 180, 260 80, 340 -40"/>
-  </svg>
+<body data-route="home">
+  <div class="shell">
+    <aside class="side" id="side" aria-label="เมนูหลัก"></aside>
 
-  <div class="app">
-    <nav class="rail" aria-label="เมนู">
-      <button class="rail-btn active" data-view="stock" aria-label="คลัง">
-        <svg viewBox="0 0 24 24"><path d="M3 10 12 4l9 6v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>คลัง</span>
-      </button>
-      <button class="rail-btn" data-view="low" aria-label="ใกล้หมด">
-        <svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg><span>ใกล้หมด</span><i class="dot" id="low-dot" hidden></i>
-      </button>
-      <button class="rail-btn" data-view="history" aria-label="ประวัติ">
-        <svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5M12 7.5V12l3 2"/></svg><span>ประวัติ</span>
-      </button>
-      <button class="rail-btn rail-end" data-act="settings" aria-label="ตั้งค่า">
-        <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>ตั้งค่า</span>
-      </button>
-    </nav>
-
-    <main class="panel">
-      <header class="top">
-        <div class="hello">
-          <span class="logo" aria-hidden="true"><img src="icon.svg" alt=""></span>
-          <div>
-            <b id="hello">สวัสดีครับ</b>
-            <small id="sub"></small>
-          </div>
-        </div>
-        <div class="top-actions">
-          <button class="pill-btn hide-sm" id="btn-refresh">
-            <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8"/><path d="M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M20 20v-4h-4"/></svg>รีเฟรช
-          </button>
-          <button class="round dark" id="btn-add" aria-label="เพิ่มรายการใหม่">
-            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
-          <button class="round" data-act="settings" aria-label="ตั้งค่า" id="avatar"></button>
-        </div>
+    <div class="main">
+      <header class="topbar">
+        <a class="m-brand" href="#/" aria-label="หน้าแรก"><img src="icon.svg" alt=""></a>
+        <div class="ttl" id="ttl"></div>
+        <label class="search" id="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="search" inputmode="search" placeholder="ค้นหาสินค้า เช่น ข้องอ 1/2, สามทาง" autocomplete="off">
+        </label>
+        <a class="cart-btn" href="#/cart" id="topcart" aria-label="ตะกร้า"></a>
       </header>
-
       <div id="banner"></div>
-
-      <section id="view-stock" class="view">
-        <div class="title-row">
-          <h1 id="page-title">คลังประปา</h1>
-          <label class="search">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="q" type="search" inputmode="search" placeholder="ค้นหา เช่น ข้องอ 1/2" autocomplete="off">
-          </label>
-        </div>
-        <div class="chips" id="chips"></div>
-
-        <div class="layout">
-          <div class="col-main">
-            <div class="stats" id="stats"></div>
-            <div class="sec-head"><h2 id="list-title">รายการอะไหล่</h2><span id="list-count"></span></div>
-            <div class="tiles" id="list"></div>
-          </div>
-          <aside class="col-side">
-            <div class="spot" id="spot"></div>
-            <div class="card-box recent">
-              <div class="sec-head"><h2>เบิกล่าสุด</h2><button class="round sm" data-view="history" aria-label="ดูประวัติทั้งหมด"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
-              <div id="recent"></div>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <section id="view-history" class="view" hidden>
-        <div class="title-row">
-          <h1>ประวัติ</h1>
-          <label class="search">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="hq" type="search" placeholder="ค้นหาของ คนเบิก หรือไซต์" autocomplete="off">
-          </label>
-        </div>
-        <div class="chips" id="hchips"></div>
-        <div id="history"></div>
-      </section>
-    </main>
+      <main class="page" id="page"></main>
+    </div>
   </div>
 
-  <div class="cart" id="cart" hidden></div>
+  <nav class="tabs" id="tabs" aria-label="เมนู"></nav>
+  <a class="cartbar" id="cartbar" href="#/cart" hidden></a>
 
   <div class="sheet-wrap" id="sheet-wrap" hidden>
     <div class="backdrop" data-close></div>
